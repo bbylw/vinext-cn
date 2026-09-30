@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
+import {
+  SUPPORT_LEVEL_META,
+  SUPPORT_LEVELS,
+  type SupportLevel,
+} from "../../data/support-level";
 
-export type Level = "full" | "partial" | "stub";
+export type Level = SupportLevel;
 
 export interface ApiRow {
   name: string;
@@ -95,10 +100,10 @@ export const API_DATA: ApiSection[] = [
   },
 ];
 
-const LEVEL_META: Record<Level, { symbol: string; label: string; dot: string }> = {
-  full: { symbol: "✅", label: "完整实现", dot: "bg-accent-green" },
-  partial: { symbol: "🟡", label: "局部实现", dot: "bg-accent" },
-  stub: { symbol: "⬜", label: "有意桩/空操作", dot: "bg-mid" },
+const LEVEL_DOT: Record<Level, string> = {
+  full: "bg-accent-green",
+  partial: "bg-accent",
+  stub: "bg-mid",
 };
 
 type Filter = "all" | Level;
@@ -142,20 +147,20 @@ export function ApiMatrix() {
       <div className="mb-8 flex flex-col gap-5 rounded-xl border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[12px]">
           <span className="text-mid">共 {stats.total} 项</span>
-          {(["full", "partial", "stub"] as Level[]).map((lv) => (
+          {SUPPORT_LEVELS.map((lv) => (
             <button
               key={lv}
               type="button"
               onClick={() => setFilter(filter === lv ? "all" : lv)}
               aria-pressed={filter === lv}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 transition-all active:scale-95 ${
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 transition active:scale-95 ${
                 filter === lv
                   ? "border-accent/70 text-paper"
                   : "border-white/10 text-mid hover:border-white/25 hover:text-subtle"
               }`}
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${LEVEL_META[lv].dot}`} aria-hidden="true" />
-              {LEVEL_META[lv].symbol} {LEVEL_META[lv].label} · <span className="tnum">{stats[lv]}</span>
+              <span className={`h-1.5 w-1.5 rounded-full ${LEVEL_DOT[lv]}`} aria-hidden="true" />
+              {SUPPORT_LEVEL_META[lv].symbol} {SUPPORT_LEVEL_META[lv].label} · <span className="tnum">{stats[lv]}</span>
             </button>
           ))}
         </div>
@@ -204,8 +209,8 @@ export function ApiMatrix() {
                       <td className="px-5 py-3.5 font-mono text-[13px] text-paper">{row.name}</td>
                       <td className="px-4 py-3.5">
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[11px] text-mid">
-                          <span aria-hidden="true">{LEVEL_META[row.level].symbol}</span>
-                          {LEVEL_META[row.level].label}
+                          <span aria-hidden="true">{SUPPORT_LEVEL_META[row.level].symbol}</span>
+                          {SUPPORT_LEVEL_META[row.level].label}
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-[13px] leading-relaxed text-mid">{row.note}</td>

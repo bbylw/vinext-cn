@@ -29,7 +29,7 @@ export function CopyButton({ text, label = "复制" }: { text: string; label?: s
       type="button"
       onClick={copy}
       aria-live="polite"
-      className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 font-mono text-[11px] tracking-wider text-mid transition-all hover:border-accent/60 hover:text-paper active:scale-95"
+      className="flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1 font-mono text-[11px] tracking-wider text-mid transition hover:border-accent/60 hover:text-paper active:scale-95"
     >
       {copied ? (
         <>

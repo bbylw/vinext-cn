@@ -14,6 +14,8 @@ export function CountUp({ value, suffix = "", duration = 1600 }: Props) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    let raf = 0;
+    let cancelled = false;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const io = new IntersectionObserver(
       ([entry]) => {
@@ -25,18 +27,23 @@ export function CountUp({ value, suffix = "", duration = 1600 }: Props) {
         }
         const start = performance.now();
         const frame = (now: number) => {
+          if (cancelled) return;
           const t = Math.min(1, (now - start) / duration);
           const eased = 1 - Math.pow(1 - t, 4);
           setDisplay(Math.round(eased * value));
-          if (t < 1) requestAnimationFrame(frame);
+          if (t < 1) raf = requestAnimationFrame(frame);
         };
-        requestAnimationFrame(frame);
+        raf = requestAnimationFrame(frame);
         io.disconnect();
       },
       { threshold: 0.4 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      io.disconnect();
+    };
   }, [value, duration]);
 
   return (

@@ -139,12 +139,8 @@ export function TypeTerminal() {
       <div className="min-h-[300px] space-y-4 px-5 py-5 font-mono text-[13px] leading-relaxed sm:min-h-[320px]">
         {STEPS.slice(0, running ? phase.step + 1 : 1).map((s, i) => {
           const isCurrent = i === phase.step && running;
-          const showCommand = !running || i < phase.step || phase.typed.length > 0;
           const shownCommand = isCurrent ? phase.typed : s.command;
-          const showAllOutput = !running || i < phase.step || reduced;
-          const outCount = isCurrent ? phase.outCount : s.output.length;
-          void showCommand;
-          void showAllOutput;
+          const visibleOutputs = isCurrent ? phase.outCount : s.output.length;
           return (
             <div key={s.command} className={i < (running ? phase.step : 0) ? "opacity-55" : ""}>
               <p>
@@ -154,9 +150,9 @@ export function TypeTerminal() {
                   <span className="terminal-caret" aria-hidden="true" />
                 )}
               </p>
-              {(isCurrent ? outCount : s.output.length) > 0 && (
+              {visibleOutputs > 0 && (
                 <div className="mt-2 space-y-1 pl-4 text-[12px] text-mid">
-                  {s.output.slice(0, isCurrent ? outCount : s.output.length).map((line) => (
+                  {s.output.slice(0, visibleOutputs).map((line) => (
                     <p key={line}>{line}</p>
                   ))}
                 </div>

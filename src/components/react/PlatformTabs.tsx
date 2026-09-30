@@ -100,7 +100,7 @@ export function PlatformTabs() {
             role="tab"
             aria-selected={active === p.id}
             onClick={() => setActive(p.id)}
-            className={`rounded-full border px-4 py-2 font-mono text-[12px] tracking-wider transition-all active:scale-95 ${
+            className={`rounded-full border px-4 py-2 font-mono text-[12px] tracking-wider transition active:scale-95 ${
               active === p.id
                 ? "border-accent/70 bg-accent/10 text-paper"
                 : "border-white/10 text-mid hover:border-white/25 hover:text-subtle"
@@ -128,7 +128,7 @@ export function PlatformTabs() {
         </div>
         <ol className="relative space-y-4 border-l border-white/12 pl-6">
           {platform.steps.map((step, i) => (
-            <li key={step} className="relative">
+            <li key={`${platform.id}-step-${i}`} className="relative">
               <span
                 className="absolute -left-[31px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-accent/60 bg-ink font-mono text-[9px] text-accent"
                 aria-hidden="true"

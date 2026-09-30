@@ -19,6 +19,7 @@
   --animate-pulse-dot: pulse-dot 2.4s ease-in-out infinite;
   --animate-blink: blink 1.1s step-end infinite;
   --animate-fade-up: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-accordion-in: accordion-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-spin-slow: spin 9s linear infinite;
 
   @keyframes marquee {
@@ -35,6 +36,10 @@
   }
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(18px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes accordion-in {
+    from { opacity: 0; transform: translateY(-6px); }
     to { opacity: 1; transform: translateY(0); }
   }
 }
@@ -93,6 +98,7 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
+  .animate-accordion-in { animation: none; }
   html { scroll-behavior: auto; }
 }
 

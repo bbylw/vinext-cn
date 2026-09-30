@@ -17,7 +17,9 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
             <h3>
               <button
                 type="button"
+                id={`faq-button-${i}`}
                 aria-expanded={expanded}
+                aria-controls={`faq-panel-${i}`}
                 onClick={() => setOpen(expanded ? null : i)}
                 className="flex w-full items-center justify-between gap-6 px-6 py-5 text-left transition-colors hover:bg-white/[0.03]"
               >
@@ -32,11 +34,9 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
                 </span>
               </button>
             </h3>
-            <div
-              className={`grid transition-all duration-300 ease-out ${expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
-            >
+            <div id={`faq-panel-${i}`} role="region" aria-labelledby={`faq-button-${i}`} className={expanded ? "" : "hidden"}>
               <div className="overflow-hidden">
-                <div className="space-y-3 px-6 pb-6 text-sm leading-relaxed text-mid">
+                <div className="animate-accordion-in space-y-3 px-6 pb-6 text-sm leading-relaxed text-mid">
                   {item.a.map((para, j) => (
                     <p key={j}>{para}</p>
                   ))}
