@@ -42,7 +42,7 @@ jobs:
         run: bun install
 
       - name: Build site
-        run: node ./node_modules/astro/astro.js build
+        run: node ./node_modules/astro/bin/astro.mjs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
