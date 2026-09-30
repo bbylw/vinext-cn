@@ -1,0 +1,396 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
+import { TypeTerminal } from "../components/react/TypeTerminal";
+import { CountUp } from "../components/react/CountUp";
+
+const features = [
+  {
+    tag: "双路由器",
+    title: "App Router 与 Pages Router",
+    desc: "开发与生产构建均支持。文件系统路由、SSR、客户端水合，在 Workers 上对两种路由器都有效。",
+    span: "lg:col-span-2",
+  },
+  {
+    tag: "服务端渲染",
+    title: "RSC · Server Actions · 中间件",
+    desc: "React Server Components、Server Actions、路由处理器与中间件——Next.js 16 的核心服务端能力。",
+    span: "",
+  },
+  {
+    tag: "输出形态",
+    title: "ISR · 静态导出 · Standalone",
+    desc: "静态生成、增量静态再生、output: \"export\"，以及自托管的 standalone Node.js 输出。",
+    span: "",
+  },
+  {
+    tag: "模块兼容",
+    title: "核心 next/* 模块",
+    desc: "next/link、next/image、next/navigation、next/headers、next/cache，以及完整的 Metadata API。",
+    span: "",
+  },
+  {
+    tag: "Workers 原生",
+    title: "Cloudflare 深度集成",
+    desc: "Bindings、KV 缓存适配器与按请求图片优化，一条命令完成构建与部署。",
+    span: "",
+  },
+  {
+    tag: "迁移工具",
+    title: "vinext check · init · Agent Skill",
+    desc: "兼容性扫描、一键迁移，以及可供 AI agent 驱动的技能包。",
+    span: "",
+  },
+];
+
+const examples = [
+  { name: "App Router Playground", desc: "Vercel 的 Next.js App Router Playground 跑在 vinext 上", url: "app-router-playground.vinext.workers.dev" },
+  { name: "Hacker News", desc: "HN 克隆（App Router、RSC）", url: "hackernews.vinext.workers.dev" },
+  { name: "Nextra Docs", desc: "Nextra 文档站（MDX、App Router）", url: "nextra-docs-template.vinext.workers.dev" },
+  { name: "App Router（最小）", desc: "Workers 上的最小 App Router", url: "app-router-cloudflare.vinext.workers.dev" },
+  { name: "Pages Router（最小）", desc: "Workers 上的最小 Pages Router", url: "pages-router-cloudflare.vinext.workers.dev" },
+  { name: "Static export", desc: "混合 App/Pages Router 站点，仅作为静态资源提供", url: "static-export.vinext.workers.dev" },
+  { name: "RealWorld API", desc: "REST API 路由示例", url: "realworld-api-rest.vinext.workers.dev" },
+  { name: "Benchmarks Dashboard", desc: "构建性能随时间跟踪（基于 D1）", url: "vinext.dev/benchmarks" },
+];
+
+const alternatives = [
+  {
+    name: "vinext",
+    verdict: "在 Vite 上从零重新实现 Next.js API 表面",
+    best: "想要更轻量的 Vite 工具链、不需要每一个 Next.js API 的应用",
+    note: "更快的构建与更小的包体，长尾特性覆盖较少",
+    highlight: true,
+  },
+  {
+    name: "OpenNext",
+    verdict: "把 next build 的产物适配到 AWS、Cloudflare 等平台",
+    best: "想要更稳妥、更经过验证的方案",
+    note: "资历更深、更成熟，覆盖的 Next.js API 面更广",
+    highlight: false,
+  },
+  {
+    name: "Next.js 自托管",
+    verdict: "部署到任意 Node.js 服务器、Docker 容器或静态导出",
+    best: "对 Next.js 工具链满意、只是想跑到 Vercel 之外",
+    note: "最简单的路径，零迁移成本",
+    highlight: false,
+  },
+];
+
+const principles = [
+  { k: "随处部署", v: "原生支持 Cloudflare Workers，其他平台可通过 Nitro 获得，更多原生适配器已在规划中。" },
+  { k: "务实兼容", v: "而非逐 bug 对齐。目标覆盖 95% 以上的真实世界 Next.js 应用，依赖未文档化 Vercel 行为的边缘情况有意不支持。" },
+  { k: "只支持最新", v: "面向 Next.js 16.x，不支持旧版本中已废弃的 API。" },
+  { k: "渐进式采用", v: "装上插件，修掉报错，部署上线。" },
+];
+---
+
+<BaseLayout
+  title="首页"
+  description="vinext：在 Vite 上运行 Next.js 应用，以 Cloudflare Workers 作为主要部署目标。中文文档与指南。"
+>
+  <!-- ============ HERO ============ -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-grid opacity-70" aria-hidden="true"></div>
+    <div
+      class="absolute -top-40 right-[-10%] h-[480px] w-[480px] rounded-full bg-accent/10 blur-[140px]"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="absolute bottom-[-20%] left-[-8%] h-[380px] w-[380px] rounded-full bg-accent-blue/10 blur-[120px]"
+      aria-hidden="true"
+    ></div>
+
+    <div class="relative mx-auto max-w-[1440px] px-5 pb-20 pt-14 sm:px-8 lg:pb-28 lg:pt-24">
+      <div class="grid items-center gap-14 lg:grid-cols-12">
+        <div class="lg:col-span-7">
+          <p class="reveal inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 font-mono text-[11px] tracking-[0.18em] text-subtle">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" aria-hidden="true"></span>
+            VITE × NEXT.JS · CLOUDFLARE WORKERS
+          </p>
+
+          <h1 class="reveal mt-7 font-display text-[clamp(2.6rem,7vw,5.4rem)] font-bold leading-[1.02] tracking-tight text-paper" style="--reveal-delay:80ms">
+            在 Vite 上运行
+            <span class="text-accent">Next.js</span>
+            应用。
+          </h1>
+
+          <p class="reveal mt-7 max-w-[52ch] text-base leading-relaxed text-mid sm:text-lg" style="--reveal-delay:160ms">
+            vinext 在 Vite 上重新实现 Next.js 的 API 表面——而不是消费
+            <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.9em] text-subtle">next build</code>
+            的产物。App Router、Pages Router、RSC、Server Actions、中间件、ISR，全部在 Vite 工具链上原生运转，并最深度地集成 Cloudflare Workers。
+          </p>
+
+          <div class="reveal mt-9 flex flex-wrap items-center gap-4" style="--reveal-delay:240ms">
+            <a
+              href="/quickstart/"
+              class="group flex items-center gap-2 rounded-full bg-paper px-7 py-3.5 font-mono text-[13px] font-semibold tracking-wider text-ink transition-all hover:bg-accent active:scale-[0.97]"
+            >
+              快速开始
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" class="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true">
+                <path d="M7 17L17 7M17 7H8M17 7v9" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </a>
+            <a
+              href="/status/"
+              class="rounded-full border border-white/15 px-7 py-3.5 font-mono text-[13px] tracking-wider text-subtle transition-all hover:border-accent/60 hover:text-paper active:scale-[0.97]"
+            >
+              查看项目状态
+            </a>
+          </div>
+
+          <p class="reveal mt-8 flex items-center gap-2 font-mono text-[11px] tracking-wider text-mid/80" style="--reveal-delay:320ms">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="text-accent" aria-hidden="true">
+              <path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2-6.4-4.8-6.4 4.8L8 14 2 9.2h7.6z" stroke-linejoin="round" />
+            </svg>
+            正在积极开发中 · 预期兼容性缺口，采用前请评估
+          </p>
+        </div>
+
+        <div class="lg:col-span-5" style="--reveal-delay:300ms">
+          <TypeTerminal client:visible />
+        </div>
+      </div>
+    </div>
+
+    <!-- 滚动提示 -->
+    <div class="relative mx-auto flex max-w-[1440px] justify-center pb-10" aria-hidden="true">
+      <div class="h-8 w-px bg-gradient-to-b from-transparent via-mid/50 to-transparent" />
+    </div>
+  </section>
+
+  <!-- ============ 数据条 ============ -->
+  <section class="border-y border-white/8 bg-ink-soft/60">
+    <div class="mx-auto grid max-w-[1440px] grid-cols-2 divide-x divide-white/8 lg:grid-cols-4">
+      {[
+        { value: 94, suffix: "%", label: "Next.js 16 API 表面覆盖" },
+        { value: 1700, suffix: "+", label: "Vitest 单元与集成测试" },
+        { value: 380, suffix: "", label: "Playwright E2E 测试" },
+        { value: 33, suffix: "+", label: "next/* 模块垫片" },
+      ].map((s) => (
+        <div class="reveal px-6 py-8 text-center sm:px-10 sm:py-10">
+          <p class="font-display text-3xl font-bold tracking-tight text-paper sm:text-4xl">
+            <CountUp client:visible value={s.value} suffix={s.suffix} />
+          </p>
+          <p class="mt-2 font-mono text-[11px] tracking-wider text-mid">{s.label}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- ============ 功能亮点 ============ -->
+  <section class="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 lg:py-28">
+    <SectionHeading
+      index="01"
+      title="目前可用的功能"
+      lead="vinext 同时支持两种路由器与完整的现代 Next.js 服务端能力。Cloudflare Workers 的集成最为深入，Node.js 和其他平台也提供不同程度的支持。"
+    />
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {features.map((f, i) => (
+        <article
+          class:list={[
+            "reveal group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-7 transition-all duration-300 hover:border-accent/40 hover:bg-white/[0.04]",
+            f.span,
+          ]}
+          style={`--reveal-delay:${(i % 3) * 90}ms`}
+        >
+          <span class="absolute right-6 top-6 font-mono text-[10px] tracking-[0.2em] text-mid/50">
+            /{String(i + 1).padStart(2, "0")}
+          </span>
+          <p class="font-mono text-[11px] uppercase tracking-[0.22em] text-accent">{f.tag}</p>
+          <h3 class="mt-3 font-display text-xl font-semibold tracking-tight text-paper">{f.title}</h3>
+          <p class="mt-3 text-sm leading-relaxed text-mid">{f.desc}</p>
+        </article>
+      ))}
+    </div>
+
+    <Callout type="warn" title="已知缺口">
+      <p>
+        Cache Components 与 Partial Prerendering 仍在完善中；构建期图片与字体优化尚未复刻完整流水线；
+        App Router 开发环境下部分原生模块（sharp、resvg、satori 等）可能失败，生产构建支持更完整。
+        迁移前请先运行 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vinext check</code>。
+      </p>
+    </Callout>
+  </section>
+
+  <!-- ============ 快速开始预览 ============ -->
+  <section class="border-y border-white/8 bg-ink-soft/40">
+    <div class="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 lg:py-28">
+      <SectionHeading
+        index="02"
+        title="三条命令，上线 Workers"
+        lead="官方初始化命令会替你配置依赖、scripts、Vite 以及部署目标——这是创建或迁移 vinext 项目的推荐方式。"
+      />
+
+      <div class="grid gap-10 lg:grid-cols-2">
+        <div class="space-y-5">
+          <div class="reveal flex gap-5">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-accent/50 font-mono text-xs text-accent">a</span>
+            <div>
+              <h3 class="font-display text-lg font-semibold text-paper">新建项目</h3>
+              <p class="mt-1.5 text-sm leading-relaxed text-mid">用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">create-vinext-app</code> 创建带 Tailwind CSS 的 TypeScript App Router 项目，默认已准备好部署到 Cloudflare Workers。</p>
+            </div>
+          </div>
+          <div class="reveal flex gap-5" style="--reveal-delay:100ms">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-accent/50 font-mono text-xs text-accent">b</span>
+            <div>
+              <h3 class="font-display text-lg font-semibold text-paper">迁移已有项目</h3>
+              <p class="mt-1.5 text-sm leading-relaxed text-mid"><code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext init</code> 一条命令自动化完成迁移：兼容性扫描、依赖安装、配置生成，全程非破坏性。</p>
+            </div>
+          </div>
+          <div class="reveal flex gap-5" style="--reveal-delay:200ms">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-accent/50 font-mono text-xs text-accent">c</span>
+            <div>
+              <h3 class="font-display text-lg font-semibold text-paper">AI agent 迁移（可选）</h3>
+              <p class="mt-1.5 text-sm leading-relaxed text-mid">vinext 附带可选的 Agent Skill，可与 Claude Code、OpenCode、Cursor、Codex 等数十种 AI 编程工具配合，自动排查兼容性问题。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-5">
+          <CodeBlock
+            fileName="终端"
+            code={`pnpm create vinext-app@latest my-app\nnpx vinext init\nnpx skills add cloudflare/vinext`}
+            lang="bash"
+          />
+          <CodeBlock
+            fileName="vite.config.ts"
+            lang="ts"
+            code={`import { defineConfig } from "vite";\nimport vinext from "vinext";\n\nexport default defineConfig({\n  plugins: [vinext()],\n});`}
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 在线示例 ============ -->
+  <section class="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 lg:py-28">
+    <SectionHeading
+      index="03"
+      title="在线示例"
+      lead="这些示例部署在 Cloudflare Workers 上，并在每次推送到 main 时更新——直接打开，感受 vinext 的实际表现。"
+    />
+
+    <div class="reveal overflow-x-auto rounded-xl border border-white/10">
+      <table class="table-tech w-full min-w-[760px] text-left">
+        <thead>
+          <tr class="bg-white/[0.04]">
+            <th class="px-5 py-3.5">示例</th>
+            <th class="px-5 py-3.5">说明</th>
+            <th class="px-5 py-3.5">URL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {examples.map((ex) => (
+            <tr class="transition-colors hover:bg-white/[0.03]">
+              <td class="px-5 py-3.5 font-medium text-paper">{ex.name}</td>
+              <td class="px-5 py-3.5 text-[13px] text-mid">{ex.desc}</td>
+              <td class="px-5 py-3.5">
+                <a
+                  href={`https://${ex.url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="link-underline font-mono text-[12px] text-accent"
+                >
+                  {ex.url}
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 为什么 + 设计原则 ============ -->
+  <section class="border-y border-white/8 bg-ink-soft/40">
+    <div class="mx-auto max-w-[1440px] px-5 py-20 sm:px-8 lg:py-28">
+      <div class="grid gap-16 lg:grid-cols-2">
+        <div>
+          <SectionHeading
+            index="04"
+            title="为什么是 vinext"
+            lead="Vite 已经成为现代 Web 框架的默认构建工具——快速的 HMR、干净的插件 API、原生 ESM，以及不断壮大的生态。随着 @vitejs/plugin-rsc 加入对 React Server Components 的支持，现在终于可以在 Vite 上构建一套完整的 RSC 框架了。"
+          />
+          <p class="reveal max-w-[58ch] text-base leading-relaxed text-mid">
+            vinext 在 Vite 上重新实现 Next.js 的 API 表面，让已有的 Next.js 应用可以在另一套工具链上运行。
+            到目前为止，结论是：<span class="text-paper">相当一部分规模的应用确实可以</span>。
+            它到处都能运行——原生支持 Cloudflare Workers，并且可以通过 Nitro 部署到 Vercel、Netlify、AWS、Deno Deploy 等更多平台。
+          </p>
+
+          <div class="reveal mt-10 space-y-0 overflow-hidden rounded-xl border border-white/10">
+            {principles.map((p, i) => (
+              <div class:list={["flex gap-5 p-5", i > 0 && "border-t border-white/8"]}>
+                <span class="font-mono text-xs text-accent">/{i + 1}</span>
+                <div>
+                  <p class="font-display text-[15px] font-semibold text-paper">{p.k}</p>
+                  <p class="mt-1 text-sm leading-relaxed text-mid">{p.v}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <h3 class="reveal font-mono text-[11px] uppercase tracking-[0.25em] text-mid">值得了解的替代方案</h3>
+          <div class="mt-5 space-y-4">
+            {alternatives.map((a, i) => (
+              <article
+                class:list={[
+                  "reveal rounded-2xl border p-6 transition-colors",
+                  a.highlight
+                    ? "border-accent/50 bg-accent/[0.06]"
+                    : "border-white/10 bg-white/[0.02] hover:border-white/20",
+                ]}
+                style={`--reveal-delay:${i * 100}ms`}
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <h4 class="font-display text-lg font-semibold tracking-tight text-paper">{a.name}</h4>
+                  {a.highlight && (
+                    <span class="rounded-full bg-accent px-2.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-widest text-ink">
+                      本站主角
+                    </span>
+                  )}
+                </div>
+                <p class="mt-2.5 text-sm leading-relaxed text-subtle">{a.verdict}</p>
+                <div class="mt-4 space-y-1.5 border-t border-white/8 pt-4 text-[13px]">
+                  <p class="text-mid"><span class="font-mono text-[11px] text-accent">适合</span> · {a.best}</p>
+                  <p class="text-mid"><span class="font-mono text-[11px] text-accent">权衡</span> · {a.note}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA ============ -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-grid opacity-50" aria-hidden="true"></div>
+    <div class="relative mx-auto max-w-[1440px] px-5 py-24 text-center sm:px-8 lg:py-32">
+      <p class="reveal font-mono text-[11px] uppercase tracking-[0.3em] text-accent">渐进式采用</p>
+      <h2 class="reveal mx-auto mt-5 max-w-[22ch] font-display text-4xl font-bold leading-tight tracking-tight text-paper sm:text-6xl" style="--reveal-delay:80ms">
+        装上插件，<br class="sm:hidden" />修掉报错，<br class="hidden sm:block" />部署上线。
+      </h2>
+      <div class="reveal mt-10 flex flex-wrap items-center justify-center gap-4" style="--reveal-delay:160ms">
+        <a
+          href="/quickstart/"
+          class="rounded-full bg-paper px-8 py-4 font-mono text-[13px] font-semibold tracking-wider text-ink transition-all hover:bg-accent active:scale-[0.97]"
+        >
+          pnpm create vinext-app@latest
+        </a>
+        <a
+          href="/api/"
+          class="rounded-full border border-white/15 px-8 py-4 font-mono text-[13px] tracking-wider text-subtle transition-all hover:border-accent/60 hover:text-paper active:scale-[0.97]"
+        >
+          浏览 API 覆盖
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

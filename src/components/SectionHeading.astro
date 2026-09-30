@@ -1,0 +1,27 @@
+---
+interface Props {
+  index: string;
+  title: string;
+  lead?: string;
+  dark?: boolean;
+  id?: string;
+}
+const { index, title, lead, dark = true, id } = Astro.props;
+---
+
+<div id={id} class="reveal mb-10 scroll-mt-28 sm:mb-14">
+  <div class="flex items-center gap-4">
+    <span class={`font-mono text-xs tracking-[0.25em] ${dark ? "text-accent" : "text-accent-deep"}`}>
+      {index}
+    </span>
+    <span class={`h-px flex-1 sm:max-w-24 ${dark ? "bg-white/15" : "bg-ink/15"}`} aria-hidden="true"></span>
+  </div>
+  <h2 class={`mt-4 font-display text-3xl font-bold leading-[1.15] tracking-tight sm:text-5xl ${dark ? "text-paper" : "text-ink"}`}>
+    {title}
+  </h2>
+  {lead && (
+    <p class={`mt-5 max-w-[62ch] text-base leading-relaxed sm:text-lg ${dark ? "text-mid" : "text-[#4d4b46]"}`}>
+      {lead}
+    </p>
+  )}
+</div>

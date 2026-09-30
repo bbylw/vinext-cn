@@ -1,0 +1,454 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
+import { PlatformTabs } from "../components/react/PlatformTabs";
+
+const authOptions = [
+  {
+    title: "cf auth login",
+    tag: "本地开发推荐",
+    desc: "打开浏览器窗口完成认证。",
+  },
+  {
+    title: "CLOUDFLARE_API_TOKEN",
+    tag: "CI / 非交互场景",
+    desc: "在 dash.cloudflare.com/profile/api-tokens 使用 Edit Cloudflare Workers 模板创建令牌。该模板授予了 @vinext/cloudflare deploy 所需的全部权限。",
+  },
+];
+
+const bindingsCode = `import { bindings } from "cf/config";
+
+env: {
+  // ...已有的 bindings
+  DB: bindings.d1({ name: "my-db" }),
+  CACHE: bindings.kv(),
+},`;
+
+const bindingsUsage = `import { env } from "cloudflare:workers";
+
+export default async function Page() {
+  const result = await env.DB.prepare("SELECT * FROM posts").all();
+  return <div>{JSON.stringify(result)}</div>;
+}`;
+
+const cacheConfig = `import { workersCacheCdnAdapter } from "@vinext/cloudflare/cache/workers-cache-cdn-adapter";
+import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
+
+vinext({
+  cache: {
+    cdn: workersCacheCdnAdapter(),
+    data: kvDataAdapter(),
+  },
+});`;
+
+const workersCacheConfig = `import { bindings } from "cf/config";
+import { createWorkersCacheConfig } from "@vinext/cloudflare/cache/config";
+
+const cache = await createWorkersCacheConfig();
+
+defineWorker({
+  // ...已有的 Worker 设置
+  ...cache,
+  env: {
+    // ...已有的 bindings
+    ...cache.env,
+    VINEXT_KV_CACHE: bindings.kv(),
+  },
+  exports: { ...existingExports, ...cache.exports },
+});`;
+
+const viteCloudflare = `import { defineConfig } from "vite";
+import vinext from "vinext";
+import { cloudflare } from "@cloudflare/vite-plugin";
+
+export default defineConfig({
+  plugins: [
+    vinext(),
+    cloudflare({
+      viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
+    }),
+  ],
+});`;
+
+const federationConfig = `import { federation } from "@module-federation/vite";
+import { defineConfig } from "vite";
+import vinext from "vinext";
+
+export default defineConfig({
+  plugins: [
+    federation({
+      name: "host",
+      shared: {
+        react: { singleton: true },
+        "react/": { singleton: true },
+        "react-dom": { singleton: true },
+        "react-dom/": { singleton: true },
+      },
+    }),
+    vinext(),
+  ],
+});`;
+
+const remoteCounter = `"use client";
+
+import * as React from "react";
+import { getVinextReact } from "vinext/client";
+
+const { useState } = getVinextReact(React);
+
+export function RemoteCounter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount((value) => value + 1)}>{count}</button>;
+}`;
+
+const warmCacheCommands = [
+  { cmd: "npx @vinext/cloudflare deploy --traffic-aware-warm-cache", desc: "预热覆盖 90% 流量的路由" },
+  { cmd: "vp exec vinext-cloudflare deploy --traffic-aware-warm-cache", desc: "同上，配合 Vite+" },
+  { cmd: "npx @vinext/cloudflare deploy --traffic-aware-warm-cache --traffic-aware-coverage 95", desc: "更激进的覆盖率" },
+  { cmd: "npx @vinext/cloudflare deploy --traffic-aware-warm-cache --traffic-aware-limit 500", desc: "上限 500 条路由" },
+  { cmd: "npx @vinext/cloudflare deploy --traffic-aware-warm-cache --traffic-aware-window 48", desc: "使用 48 小时的分析数据" },
+  { cmd: "npx @vinext/cloudflare deploy --traffic-aware-warm-cache --warm-cache-target https://example.com", desc: "手动设置生产源站" },
+];
+
+const nitroConfig = `import { defineConfig } from "vite";
+import vinext from "vinext";
+import { nitro } from "nitro/vite";
+
+export default defineConfig({
+  plugins: [vinext(), nitro()],
+});`;
+---
+
+<BaseLayout title="部署" description="vinext 部署指南：Cloudflare Workers 原生集成、Bindings、流量感知预热，以及通过 Nitro 部署到更多平台。">
+  <div class="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 lg:py-24">
+    <div class="grid gap-14 lg:grid-cols-[240px_1fr]">
+      <aside class="hidden lg:block">
+        <nav class="sticky top-28 space-y-1" aria-label="页面目录">
+          {[
+            ["#cloudflare-workers", "Cloudflare Workers"],
+            ["#cloudflare-bindings", "Bindings"],
+            ["#流量感知预热", "流量感知预热"],
+            ["#自定义-vite-配置", "自定义 Vite 配置"],
+            ["#module-federation", "Module Federation"],
+            ["#other-platforms", "其他平台（Nitro）"],
+          ].map(([href, label]) => (
+            <a href={href} class="link-underline block py-1.5 font-mono text-[12px] tracking-wider text-mid hover:text-paper">
+              {label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      <div>
+        <p class="reveal font-mono text-[11px] uppercase tracking-[0.3em] text-accent">部署</p>
+        <h1 class="reveal mt-4 font-display text-4xl font-bold tracking-tight text-paper sm:text-6xl">
+          随处<span class="text-accent">部署</span>
+        </h1>
+        <p class="reveal mt-6 max-w-[62ch] text-base leading-relaxed text-mid sm:text-lg">
+          Cloudflare Workers 是第一个原生支持的目标，体验最顺滑；
+          其他平台可通过 Nitro Vite 插件获得，覆盖 Vercel、Netlify、AWS、Deno Deploy 等。
+        </p>
+
+        <!-- Cloudflare Workers -->
+        <SectionHeading
+          index="01"
+          id="cloudflare-workers"
+          title="Cloudflare Workers"
+          lead="vinext 通过 @cloudflare/vite-plugin 与 Cloudflare Workers 原生集成，包括通过 cloudflare:workers 访问 bindings、KV 缓存、图片优化，以及 @vinext/cloudflare deploy 的一条命令工作流。"
+        />
+
+        <Callout type="info" title="前置条件">
+          <p>
+            在首次运行 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">npx @vinext/cloudflare deploy</code>
+            之前，请先运行 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vinext init --platform=cloudflare</code>
+            来安装 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">cf</code> 与
+            Cloudflare Vite plugin v2，创建或更新 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vite.config.*</code>，
+            并生成 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">cloudflare.config.ts</code>。
+          </p>
+        </Callout>
+
+        <h3 class="mb-4 mt-10 font-mono text-[12px] uppercase tracking-[0.2em] text-subtle">身份认证——二选一</h3>
+        <div class="grid gap-4 md:grid-cols-2">
+          {authOptions.map((a, i) => (
+            <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6" style={`--reveal-delay:${i * 80}ms`}>
+              <div class="flex items-center justify-between gap-3">
+                <code class="font-mono text-[13px] text-accent">{a.title}</code>
+                <span class="rounded-full border border-white/15 px-2.5 py-0.5 font-mono text-[10px] tracking-wider text-mid">{a.tag}</span>
+              </div>
+              <p class="mt-3 text-sm leading-relaxed text-mid">{a.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div class="mt-8 grid gap-4 lg:grid-cols-2">
+          <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6">
+            <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">账户 ID</p>
+            <p class="mt-3 text-sm leading-relaxed text-mid">
+              在 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cloudflare.config.ts</code> 的
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">defineConfig</code> 顶层、
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">worker</code> 之外设置
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">accountId</code>。
+              你可以在 Cloudflare 仪表盘 URL（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">dash.cloudflare.com/&lt;account-id&gt;</code>）中找到你的账户 ID。
+              或者，设置 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">CLOUDFLARE_ACCOUNT_ID</code> 环境变量，而不是把它硬编码进配置文件。
+            </p>
+          </div>
+          <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6" style="--reveal-delay:80ms">
+            <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">一条命令部署</p>
+            <div class="mt-4 space-y-2">
+              {["npx @vinext/cloudflare deploy", "vp exec vinext-cloudflare deploy", "npx @vinext/cloudflare deploy --env staging", "vp exec vinext-cloudflare deploy --env staging"].map((c) => (
+                <div class="flex items-center gap-3 rounded-lg border border-white/8 bg-[#101010] px-4 py-2.5">
+                  <span class="font-mono text-accent">$</span>
+                  <code class="font-mono text-[12px] text-paper">{c}</code>
+                </div>
+              ))}
+            </div>
+            <p class="mt-4 text-[13px] leading-relaxed text-mid">
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">@vinext/cloudflare deploy</code>
+              会校验初始化好的配置、构建应用，并用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cf</code>
+              部署其 Cloudflare Build Output，而不会改写项目配置。使用
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--env &lt;name&gt;</code> 来选择构建与部署所用的 Vite 模式。
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--preview</code> 是 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--env preview</code> 的简写。
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <h3 class="mb-3 font-mono text-[12px] uppercase tracking-[0.2em] text-subtle">Response Store 模式</h3>
+          <p class="text-sm leading-relaxed text-mid">
+            在 Response Store 的 service-binding 模式下，两个 Worker 会一起构建，但缓存 Worker 需要显式部署。
+            在创建 init 指定的 R2 存储桶后，运行：
+          </p>
+          <CodeBlock fileName="终端" lang="bash" code={`pnpm run build:vinext\npnpm run deploy:response-store\npnpm run deploy:vinext`} />
+          <p class="mt-3 text-sm leading-relaxed text-mid">
+            对于 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">create-vinext-app</code> 项目，使用
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">build</code> 与
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">deploy</code>，而非
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">build:vinext</code> 与
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">deploy:vinext</code>。
+            仅当 Response Store 的包或配置发生变化时才重新部署它；普通的应用部署不会部署这些辅助 Worker。
+          </p>
+        </div>
+
+        <div class="mt-10">
+          <h3 class="mb-3 font-mono text-[12px] uppercase tracking-[0.2em] text-subtle">缓存适配器</h3>
+          <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+            缓存是可插拔的。默认的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">MemoryCacheHandler</code> 开箱即用；
+            在生产环境中，与其在 worker 入口以命令式方式接线缓存处理器，不如在
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext()</code> 插件配置中声明它们。
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">@vinext/cloudflare</code> 附带了 Cloudflare 适配器：
+            KV 数据缓存（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">kvDataAdapter()</code>）、
+            Workers Cache CDN（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">workersCacheCdnAdapter()</code>）、
+            静态资源（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">staticAssetsAdapter()</code>）
+            与 Response Store（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">responseStoreAdapter()</code>）。
+            KV 与 Workers Cache 适配器填充不同的槽位，可组合使用：
+          </p>
+          <CodeBlock fileName="vite.config.ts" lang="ts" code={cacheConfig} />
+          <p class="mt-4 text-sm leading-relaxed text-mid">
+            KV 数据适配器在运行时读取 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">env[binding]</code>。
+            请在 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cloudflare.config.ts</code>
+            中配置它的命名空间与 Workers Cache 入口点。这里的
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">existingExports</code>
+            是你当前 Worker 的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">exports</code> 对象，如果没有则为
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">{"{}"}</code>：
+          </p>
+          <CodeBlock fileName="cloudflare.config.ts" lang="ts" code={workersCacheConfig} />
+          <p class="mt-4 text-sm leading-relaxed text-mid">
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">binding</code> 默认为
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">VINEXT_KV_CACHE</code>，
+            因此只要你的绑定名就是这个，<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">kvDataAdapter()</code> 不带选项也能工作。
+            其他选项：<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">appPrefix</code>（为命名空间缓存键加前缀，以在单个 KV 命名空间内隔离多个应用）、
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">ttlSeconds</code>（默认 KV <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">expirationTtl</code>，默认 30 天）、
+            <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">tagCacheTtlMs</code>（内存中标签失效缓存 TTL，默认 5s），
+            以及 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">entryCacheTtlSeconds</code>（可选的 KV 边缘缓存 TTL，用于条目读取；标签标记保留 KV 默认值）。
+            完整细节见
+            <a class="link-underline text-accent" href="https://vinext.dev/docs/guides/caching" target="_blank" rel="noreferrer">caching guide</a>。
+          </p>
+        </div>
+
+        <Callout type="tip" title="init 的自动探测与修复">
+          <p>init 命令还会自动探测并修复常见的迁移问题：</p>
+          <ul class="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-subtle">
+            <li>如果缺失，则向 package.json 添加 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">"type": "module"</code></li>
+            <li>用 Vite 的原生解析器自动解析 tsconfig.json 的路径别名</li>
+            <li>探测 MDX 用法并配置 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">@mdx-js/rollup</code></li>
+            <li>在需要时把 CJS 配置文件（postcss.config.js 等）重命名为 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">.cjs</code></li>
+            <li>探测原生 Node.js 模块（sharp、resvg、satori、lightningcss、@napi-rs/canvas）并为 Workers 自动打桩。如果你遇到其他需要打桩的模块，欢迎提 PR。</li>
+          </ul>
+        </Callout>
+
+        <p class="mt-6 text-sm leading-relaxed text-mid">
+          App Router 与 Pages Router 在 Workers 上都支持完整的客户端水合。
+        </p>
+
+        <!-- Bindings -->
+        <SectionHeading
+          index="02"
+          id="cloudflare-bindings"
+          title="Cloudflare Bindings（D1、R2、KV、AI 等）"
+          lead={`使用 import { env } from "cloudflare:workers" 即可在任何服务端组件、路由处理器或 Server Action 中访问 bindings。无需自定义的 worker 入口或特殊配置。`}
+        />
+
+        <CodeBlock fileName="app/page.tsx" lang="tsx" code={bindingsUsage} />
+
+        <p class="mt-5 text-sm leading-relaxed text-mid">
+          这之所以可行，是因为 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">@cloudflare/vite-plugin</code>
+          在 workerd 中运行 RSC 环境，而 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cloudflare:workers</code>
+          在那里是一个原生模块。在生产构建中，该导入会被外部化，由 workerd 在运行时解析。
+          所有绑定类型都受支持：D1、R2、KV、Durable Objects、AI、Queues、Vectorize、Browser Rendering 等。
+        </p>
+
+        <h3 class="mb-3 mt-8 font-mono text-[12px] uppercase tracking-[0.2em] text-subtle">在 cloudflare.config.ts 中声明 bindings</h3>
+        <CodeBlock fileName="cloudflare.config.ts" lang="ts" code={bindingsCode} />
+
+        <Callout type="tip" title="类型生成">
+          <p>
+            绑定与运行时类型会在开发与构建期间生成于 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">.cloudflare/types</code>。
+            请将该目录加入 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">tsconfig.json</code>；
+            在独立类型检查前运行 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">cf workers types</code>。
+            生成的类型与 Build Output 都保持 gitignore 状态。
+          </p>
+        </Callout>
+
+        <Callout type="info" title="不需要变通方案">
+          <p>
+            你不需要 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">getPlatformProxy()</code>、
+            带 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">fetch(request, env)</code> 的自定义 worker 入口，
+            或任何其他变通方案。<code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">cloudflare:workers</code>
+            是 vinext 中访问 bindings 的推荐方式。
+          </p>
+        </Callout>
+
+        <!-- 流量感知预热 -->
+        <SectionHeading
+          index="03"
+          id="流量感知预热"
+          title="流量感知预热"
+          lead="流量感知预热会在部署时查询 Cloudflare 的 zone 分析数据，挑选出真正有流量的路由。这些路由随后会经过 vinext 标准的、分阶段的 CDN 预热流程，包括路由解析、可缓存性检查与晋升。"
+        />
+
+        <div class="reveal space-y-2.5">
+          {warmCacheCommands.map((row) => (
+            <div class="flex flex-col gap-1.5 rounded-lg border border-white/8 bg-[#101010] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+              <div class="flex items-center gap-3">
+                <span class="font-mono text-accent">$</span>
+                <code class="font-mono text-[11.5px] text-paper break-all">{row.cmd}</code>
+              </div>
+              <span class="font-mono text-[11px] text-mid lg:shrink-0 lg:pl-6">{row.desc}</span>
+            </div>
+          ))}
+        </div>
+
+        <p class="mt-5 text-sm leading-relaxed text-mid">
+          需要一个自定义域名（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">*.workers.dev</code> 上无法使用 zone 分析数据），
+          以及具备该 zone 的 <strong class="text-subtle">Zone &gt; Analytics &gt; Read</strong> 与
+          <strong class="text-subtle">Zone &gt; Zone &gt; Read</strong> 权限的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">CLOUDFLARE_API_TOKEN</code>。
+        </p>
+
+        <p class="mt-4 text-sm leading-relaxed text-mid">
+          对于类型化配置的项目，在 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cloudflare.config.ts</code> 中用
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">domains: ["example.com"]</code> 在 Worker 上声明自定义域名。
+          生成的 Build Output 中的第一个域名会被同时用于分析与分阶段预热。Wrangler 项目则从它们配置好的路由与已部署的触发器保留域名选择。
+          使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--warm-cache-target https://example.com</code> 可覆盖源站。
+          添加 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--warm-cache-certify</code> 以要求可复用的缓存命中在晋升前被证明有效，
+          或使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--no-promote</code> 让预热好的版本停留在 0% 流量以便验证。
+        </p>
+
+        <p class="mt-4 text-sm leading-relaxed text-mid">
+          单独使用流量感知标志即可应用覆盖率与路由上限。把它与 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--warm-cache</code> 组合则会保留完整的、构建期发现的预热结果。
+          所有选择项与要求的详细说明见
+          <a class="link-underline text-accent" href="https://vinext.dev/docs/guides/caching" target="_blank" rel="noreferrer">caching guide</a>。
+          此前的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--experimental-traffic-aware-warm-cache</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--experimental-tpr</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--tpr-*</code> 名称仍作为别名保留。
+        </p>
+
+        <!-- 自定义 Vite 配置 -->
+        <SectionHeading
+          index="04"
+          id="自定义-vite-配置"
+          title="自定义 Vite 配置"
+          lead="如果你需要自定义 Vite 配置，请创建 vite.config.ts。vinext 会把它的配置与你的配置合并。"
+        />
+
+        <p class="text-sm leading-relaxed text-mid">
+          对于使用 App Router 的 Cloudflare Workers 部署，请配置 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">@cloudflare/vite-plugin</code>，
+          让 RSC 环境运行在 workerd 中：
+        </p>
+        <CodeBlock fileName="vite.config.ts" lang="ts" code={viteCloudflare} />
+
+        <Callout type="warn" title="不要自己注册 @vitejs/plugin-rsc">
+          <p>
+            它是一个可选的 peer 依赖，因此必须在你的项目中<strong class="text-subtle">安装</strong>，
+            但 vinext 会在探测到 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">app/</code> 目录时自动注册它。
+            显式调用 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">rsc()</code> 会导致构建失败，
+            报错 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">[vinext] Duplicate @vitejs/plugin-rsc detected</code>。
+            只有当你想自己掌控该注册时，才向 <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">vinext()</code> 传入
+            <code class="rounded bg-ink/80 px-1 py-0.5 font-mono text-[0.85em]">rsc: false</code>。
+          </p>
+        </Callout>
+
+        <!-- Module Federation -->
+        <SectionHeading
+          index="05"
+          id="module-federation"
+          title="Module Federation（客户端）"
+          lead="对于客户端 Module Federation，需要在 host 与 remote 两侧都把 React 与 React DOM 配置为单例共享模块。"
+        />
+
+        <CodeBlock fileName="vite.config.ts" lang="ts" code={federationConfig} />
+
+        <p class="mt-5 text-sm leading-relaxed text-mid">
+          在一个远程客户端组件中，读取 React hooks 之前先使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">getVinextReact()</code>。
+          vinext 会在应用模块执行前注册 host 的浏览器 React 实例，并且首次注册在远程求值与 HMR 之间保持稳定：
+        </p>
+        <CodeBlock fileName="remote/Counter.tsx" lang="tsx" code={remoteCounter} />
+
+        <p class="mt-5 text-sm leading-relaxed text-mid">
+          这个桥接仅限浏览器。它不提供 App Router 的 Module Federation SSR，也不会透明地替换第三方包内部的 React 导入；
+          兼容的 React 版本仍由 Module Federation 的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">shared</code> 配置负责。
+          完整可用配置见 <a class="link-underline text-accent" href="https://github.com/cloudflare/vinext#live-examples" target="_blank" rel="noreferrer">examples</a>。
+        </p>
+
+        <!-- 其他平台 -->
+        <SectionHeading
+          index="06"
+          id="other-platforms"
+          title="其他平台（via Nitro）"
+          lead="要部署到 Cloudflare 以外的平台，vinext 可以与 Nitro 作为 Vite 插件配合使用。在 Vite 配置中把 nitro 与 vinext 并列，即可部署到任意 Nitro 支持的平台。"
+        />
+
+        <CodeBlock fileName="vite.config.ts" lang="ts" code={nitroConfig} />
+        <CodeBlock fileName="终端" lang="bash" code="npm install nitro" />
+
+        <p class="mt-5 text-sm leading-relaxed text-mid">
+          Nitro 在绝大多数 CI/CD 环境（Vercel、Netlify、AWS Amplify、Azure 等）中会自动探测部署平台，因此通常你不需要设置 preset。
+          对于本地构建，请设置 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">NITRO_PRESET</code> 环境变量：
+        </p>
+        <CodeBlock fileName="终端" lang="bash" code={`NITRO_PRESET=vercel npx vite build\nNITRO_PRESET=netlify npx vite build\nNITRO_PRESET=deno_deploy npx vite build`} />
+
+        <Callout type="info" title="要部署到 Cloudflare？">
+          <p>
+            你可以用 Nitro，但我们推荐使用原生集成（<code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">npx @vinext/cloudflare deploy</code>、
+            <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vp exec vinext-cloudflare deploy</code>，以及
+            <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">@cloudflare/vite-plugin</code>）。
+            它能通过 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">cloudflare:workers</code> bindings、
+            KV 缓存、图片优化和一条命令部署，提供最佳的开发体验。
+          </p>
+        </Callout>
+
+        <div class="mt-10">
+          <PlatformTabs client:load />
+        </div>
+
+        <p class="mt-8 text-sm leading-relaxed text-mid">
+          完整的支持平台列表与各家提供商的特定配置见
+          <a class="link-underline text-accent" href="https://v3.nitro.build/deploy" target="_blank" rel="noreferrer">Nitro 部署文档</a>。
+          更多平台的原生适配器已在
+          <a class="link-underline text-accent" href="https://github.com/cloudflare/vinext/issues/80" target="_blank" rel="noreferrer">规划中</a>。
+        </p>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

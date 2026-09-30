@@ -1,0 +1,37 @@
+---
+import { CopyButton } from "./react/CopyButton";
+
+interface Props {
+  code: string;
+  lang?: string;
+  title?: string;
+  fileName?: string;
+}
+
+const { code, lang, title, fileName } = Astro.props;
+const trimmed = code.replace(/^\n/, "").replace(/\n\s*$/, "");
+---
+
+<figure class="reveal group my-6 overflow-hidden rounded-xl border border-white/10 bg-[#101010]">
+  {(title || fileName || lang) && (
+    <figcaption class="flex items-center justify-between gap-3 border-b border-white/8 bg-white/[0.03] px-4 py-2.5">
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="flex gap-1.5" aria-hidden="true">
+          <i class="h-2.5 w-2.5 rounded-full bg-[#3f3d3a]" />
+          <i class="h-2.5 w-2.5 rounded-full bg-[#3f3d3a]" />
+          <i class="h-2.5 w-2.5 rounded-full bg-accent/70" />
+        </span>
+        {fileName ? (
+          <span class="truncate font-mono text-[11px] text-subtle">{fileName}</span>
+        ) : (
+          title && <span class="truncate font-mono text-[11px] tracking-wider text-mid">{title}</span>
+        )}
+      </div>
+      <div class="flex items-center gap-3">
+        {lang && <span class="font-mono text-[10px] uppercase tracking-[0.2em] text-mid/70">{lang}</span>}
+        <CopyButton client:idle text={trimmed} />
+      </div>
+    </figcaption>
+  )}
+  <pre class="code overflow-x-auto px-5 py-4 text-subtle"><code>{trimmed}</code></pre>
+</figure>

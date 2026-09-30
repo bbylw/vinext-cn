@@ -1,0 +1,81 @@
+---
+const nav = [
+  { href: "/", label: "首页" },
+  { href: "/quickstart/", label: "快速开始" },
+  { href: "/status/", label: "项目状态" },
+  { href: "/deploy/", label: "部署" },
+  { href: "/api/", label: "API 覆盖" },
+  { href: "/architecture/", label: "架构" },
+  { href: "/benchmarks/", label: "基准测试" },
+  { href: "/faq/", label: "常见问题" },
+];
+const current = Astro.url.pathname;
+---
+
+<header class="fixed inset-x-0 top-0 z-50 border-b border-white/8 bg-ink/80 backdrop-blur-xl">
+  <div class="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-6 px-5 sm:px-8">
+    <a href="/" class="group" aria-label="vinext 首页">
+      <span class="font-display text-lg font-bold tracking-tight text-paper">
+        vinext<span class="text-accent">.</span>
+      </span>
+    </a>
+
+    <nav class="hidden items-center gap-7 lg:flex" aria-label="主导航">
+      {nav.map((item) => (
+        <a
+          href={item.href}
+          aria-current={current === item.href ? "page" : undefined}
+          class:list={[
+            "link-underline font-mono text-[12px] tracking-wider transition-colors",
+            current === item.href ? "text-accent" : "text-mid hover:text-paper",
+          ]}
+        >
+          {item.label}
+        </a>
+      ))}
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <a
+        href="https://vinext.dev"
+        target="_blank"
+        rel="noreferrer"
+        class="hidden items-center gap-2 rounded-full border border-white/12 px-4 py-1.5 font-mono text-[11px] tracking-wider text-subtle transition-all hover:border-accent/60 hover:text-paper md:flex"
+      >
+        <span class="h-1.5 w-1.5 rounded-full bg-accent animate-pulse-dot" aria-hidden="true" />
+        vinext.dev
+      </a>
+      <a
+        href="https://github.com/cloudflare/vinext"
+        target="_blank"
+        rel="noreferrer"
+        class="flex items-center gap-2 rounded-full bg-paper px-4 py-1.5 font-mono text-[11px] font-semibold tracking-wider text-ink transition-transform active:scale-[0.97] hover:bg-accent hover:text-ink"
+      >
+        GitHub
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+          <path d="M7 17L17 7M17 7H8M17 7v9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- 移动端导航 -->
+  <nav class="flex gap-2 overflow-x-auto border-t border-white/8 px-5 py-3 lg:hidden" aria-label="移动端导航">
+    {nav.map((item) => (
+      <a
+        href={item.href}
+        class:list={[
+          "whitespace-nowrap rounded-full border px-3 py-1 font-mono text-[11px] tracking-wider transition-colors",
+          current === item.href
+            ? "border-accent/60 text-accent"
+            : "border-white/10 text-mid",
+        ]}
+      >
+        {item.label}
+      </a>
+    ))}
+  </nav>
+</header>
+
+<!-- 页面滚动进度条 -->
+<div id="scroll-progress" class="fixed inset-x-0 top-0 z-[60] h-[2px] origin-left scale-x-0 bg-accent" aria-hidden="true"></div>

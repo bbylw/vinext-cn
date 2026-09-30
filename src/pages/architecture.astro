@@ -1,0 +1,187 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
+
+const pipeline = [
+  { n: "01", title: "解析 next/* 导入", desc: "解析所有 next/* 导入，指向用标准 Web API 与 React 原语重新实现 Next.js API 的本地垫片模块。" },
+  { n: "02", title: "扫描文件系统路由", desc: "扫描你的 pages/ 与 app/ 目录，构建一套符合 Next.js 约定的文件系统路由器。" },
+  { n: "03", title: "生成虚拟入口模块", desc: "生成虚拟入口模块，用于 RSC、SSR 与浏览器环境，负责请求路由、组件渲染与客户端水合。" },
+  { n: "04", title: "集成 RSC 插件", desc: "与 @vitejs/plugin-rsc 集成，以支撑 React Server Components——处理 \"use client\" / \"use server\" 指令、RSC 流序列化，以及多环境构建。" },
+];
+
+const pagesFlow = `Request → Vite dev server middleware → Route match → getServerSideProps/getStaticProps
+  → renderToReadableStream(App + Page) → HTML with __NEXT_DATA__ → Client hydration`;
+
+const appFlow = `Request → RSC entry (Vite rsc environment) → Route match → Build layout/page tree
+  → renderToReadableStream (RSC payload) → SSR entry (Vite ssr environment)
+  → renderToReadableStream (HTML) → Client hydration from RSC stream`;
+
+const projectTree = `packages/vinext/
+  src/
+    index.ts              # 主插件——解析别名、配置、虚拟模块
+    cli.ts                # vinext CLI（dev/build/start/deploy/init/check/lint）
+    check.ts              # 兼容性扫描器
+    deploy.ts             # Cloudflare Workers 部署
+    init.ts               # vinext init——Next.js 应用的一条命令迁移
+    client/
+      entry.ts            # 客户端水合入口
+    routing/
+      pages-router.ts     # Pages Router 文件系统扫描器
+      app-router.ts       # App Router 文件系统扫描器
+    entries/
+      app-rsc-entry.ts    # App Router RSC 入口生成器
+      app-ssr-entry.ts    # App Router SSR 入口生成器
+      app-browser-entry.ts # App Router 浏览器入口生成器
+      pages-server-entry.ts # Pages Router SSR 入口生成器
+      pages-client-entry.ts # Pages Router 客户端入口生成器
+    server/
+      dev-server.ts       # Pages Router SSR 请求处理器
+      prod-server.ts      # 带压缩的生产服务器
+      api-handler.ts      # Pages Router API 路由
+      isr-cache.ts        # ISR 缓存层
+      middleware.ts       # middleware.ts / proxy.ts 运行器
+      metadata-routes.ts  # 基于文件的 metadata 路由扫描器
+      instrumentation.ts  # instrumentation.ts 支持
+    shims/                # 每个 next/* 模块一个文件（33 个垫片 + 6 个内部）
+    build/
+      static-export.ts    # output: 'export' 支持
+    utils/
+      project.ts          # 共享项目工具（ESM、CJS、包管理器探测）
+    config/
+      next-config.ts      # next.config.js 加载器
+      config-matchers.ts  # 配置匹配工具
+
+tests/
+  *.test.ts               # Vitest 单元 + 集成测试
+  nextjs-compat/          # 从 Next.js 测试套件移植过来的测试
+  fixtures/               # 测试应用（pages-basic、app-basic、ecosystem libs）
+  e2e/                    # Playwright E2E 测试（5 个项目）
+
+examples/                 # 已部署的演示应用`;
+
+const testCommands = `pnpm test             # Vitest 单元 + 集成测试
+pnpm run test:e2e     # Playwright E2E 测试（5 个项目）
+pnpm run check        # 格式化、lint 与类型检查
+pnpm run lint         # 仅 lint（类型感知的 oxlint）
+pnpm run fmt          # 格式化（oxfmt）
+pnpm run fmt:check    # 不做写入地检查格式化`;
+
+const localSetup = `git clone https://github.com/cloudflare/vinext.git
+cd vinext
+pnpm install
+pnpm run build`;
+
+const linkPackage = `# 在你的 Next.js 项目目录下：
+pnpm link /path/to/vinext/packages/vinext`;
+
+const fileDep = `{
+  "dependencies": {
+    "vinext": "file:/path/to/vinext/packages/vinext"
+  }
+}`;
+---
+
+<BaseLayout title="架构" description="vinext 架构：Vite 插件流水线、Pages/App Router 流程、项目结构与测试。">
+  <div class="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 lg:py-24">
+    <div class="grid gap-14 lg:grid-cols-[240px_1fr]">
+      <aside class="hidden lg:block">
+        <nav class="sticky top-28 space-y-1" aria-label="页面目录">
+          {[
+            ["#流水线", "插件流水线"],
+            ["#路由流程", "路由流程"],
+            ["#项目结构", "项目结构"],
+            ["#测试", "测试"],
+            ["#本地搭建", "本地搭建"],
+          ].map(([href, label]) => (
+            <a href={href} class="link-underline block py-1.5 font-mono text-[12px] tracking-wider text-mid hover:text-paper">
+              {label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      <div>
+        <p class="reveal font-mono text-[11px] uppercase tracking-[0.3em] text-accent">架构</p>
+        <h1 class="reveal mt-4 font-display text-4xl font-bold tracking-tight text-paper sm:text-6xl">
+          Vite 插件，<span class="text-accent">四步</span>成型
+        </h1>
+        <p class="reveal mt-6 max-w-[62ch] text-base leading-relaxed text-mid sm:text-lg">
+          vinext 是一个 Vite 插件。其结果是一个标准的 Vite 应用，恰好与 Next.js API 兼容。
+        </p>
+
+        <SectionHeading index="01" id="流水线" title="插件流水线" />
+
+        <div class="grid gap-4 md:grid-cols-2">
+          {pipeline.map((step, i) => (
+            <article
+              class="reveal relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition-colors hover:border-accent/40"
+              style={`--reveal-delay:${(i % 2) * 90}ms`}
+            >
+              <span class="font-display text-4xl font-bold tracking-tight text-white/8" aria-hidden="true">{step.n}</span>
+              <h3 class="mt-2 font-display text-lg font-semibold tracking-tight text-paper">{step.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-mid">{step.desc}</p>
+            </article>
+          ))}
+        </div>
+
+        <SectionHeading index="02" id="路由流程" title="路由流程" />
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6">
+            <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">Pages Router 流程</p>
+            <pre class="code mt-4 overflow-x-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-subtle">{pagesFlow}</pre>
+          </div>
+          <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6" style="--reveal-delay:100ms">
+            <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-accent">App Router 流程</p>
+            <pre class="code mt-4 overflow-x-auto whitespace-pre-wrap text-[12.5px] leading-relaxed text-subtle">{appFlow}</pre>
+          </div>
+        </div>
+
+        <SectionHeading index="03" id="项目结构" title="项目结构" />
+        <CodeBlock fileName="目录树" code={projectTree} />
+
+        <SectionHeading index="04" id="测试" title="测试" />
+        <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+          测试套件包含超过 <span class="text-paper">1,700 个 Vitest 测试</span>与
+          <span class="text-paper">380 个 Playwright E2E 测试</span>。
+          其中包含直接从 Next.js 测试套件和 OpenNext 的 Cloudflare 一致性测试套件移植过来的用例，
+          覆盖路由、SSR、RSC、Server Actions、缓存、Metadata、中间件、流式渲染等。
+          Vercel 的 App Router Playground 也作为集成测试跑在 vinext 上。
+          详见 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">tests/nextjs-compat/TRACKING.md</code>。
+        </p>
+        <CodeBlock fileName="终端" lang="bash" code={testCommands} />
+        <p class="mt-4 text-sm leading-relaxed text-mid">
+          E2E 测试覆盖 Pages Router（dev + 生产）、App Router（dev），以及通过
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">wrangler dev</code>
+          在 Cloudflare Workers 上运行的两种路由器。
+        </p>
+
+        <SectionHeading index="05" id="本地搭建" title="本地搭建（从源码）" />
+        <p class="text-sm leading-relaxed text-mid">如果你是从仓库工作，而不是从 npm 安装：</p>
+        <CodeBlock fileName="终端" lang="bash" code={localSetup} />
+        <p class="mt-4 text-sm leading-relaxed text-mid">
+          这会把 vinext 包构建到 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">packages/vinext/dist/</code>。
+          要进行活跃开发，请使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">pnpm --filter vinext run dev</code>
+          在变更时重新构建。
+        </p>
+        <p class="mt-4 text-sm leading-relaxed text-mid">要针对一个外部的 Next.js 应用使用它，请链接构建好的包：</p>
+        <CodeBlock fileName="终端" lang="bash" code={linkPackage} />
+        <p class="mt-4 text-sm leading-relaxed text-mid">或者把它作为文件依赖加入你的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">package.json</code>：</p>
+        <CodeBlock fileName="package.json" lang="json" code={fileDep} />
+
+        <Callout type="info" title="Peer 依赖">
+          <p>
+            vinext 的 peer 依赖为 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">react ^19.2.6</code>、
+            <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">react-dom ^19.2.6</code>、
+            <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">react-server-dom-webpack ^19.2.6</code>，
+            以及 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vite ^8.0.0</code>。
+            然后把脚本里的 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">next</code> 换成
+            <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vinext</code>，照常运行即可。
+          </p>
+        </Callout>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

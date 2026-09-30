@@ -1,0 +1,397 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
+
+const cliRows = [
+  { cmd: "vite dev", desc: "启动带 HMR 的开发服务器" },
+  { cmd: "vite build", desc: "生产构建（App Router 多环境：RSC + SSR + 客户端）" },
+  { cmd: "vinext start", desc: "启动本地生产服务器用于测试" },
+  { cmd: "npx @vinext/cloudflare deploy", desc: "构建并部署到 Cloudflare Workers" },
+  { cmd: "vp exec vinext-cloudflare deploy", desc: "配合 Vite+ 构建并部署到 Cloudflare Workers" },
+  { cmd: "vinext init", desc: "将 Next.js 项目迁移到 vinext 下运行" },
+  { cmd: "vinext check", desc: "在迁移前扫描你的 Next.js 应用的兼容性问题" },
+  { cmd: "vinext lint", desc: "委托给 eslint 或 oxlint" },
+];
+
+const deployOptions = [
+  "--preview",
+  "--env <name>",
+  "--name <name>",
+  "--skip-build",
+  "--dry-run",
+  "--warm-cache",
+  "--traffic-aware-warm-cache",
+];
+
+const initOptions = [
+  { opt: "--platform=cloudflare | --platform=node", desc: "跳过平台选择提示（默认 Cloudflare）" },
+  { opt: "--port <port>", desc: "端口号，默认 3001" },
+  { opt: "--skip-check", desc: "跳过兼容性报告" },
+  { opt: "--force", desc: "替换已有的 Node 目标 Vite 配置" },
+  { opt: "--legacy-wrangler-cloudflare-init", desc: "保留旧的 Wrangler 配置（init 与 create-vinext-app 均接受）" },
+];
+
+const initSteps = [
+  "运行 vinext check 扫描兼容性问题",
+  "将 vinext 运行时包安装为依赖，将 Vite/插件工具安装为 devDependencies",
+  "把 CJS 配置文件（例如 postcss.config.js → .cjs）重命名以避免 ESM 冲突",
+  "向 package.json 添加 \"type\": \"module\"",
+  "向 package.json 添加 dev:vinext、build:vinext、start:vinext 脚本",
+  "提示选择部署平台（默认 Cloudflare，或 Node）",
+  "生成对应的 vite.config.ts",
+  "对于 Cloudflare，为 cf 与 Cloudflare Vite plugin v2 生成 cloudflare.config.ts",
+];
+
+const envOrder = [
+  "已有的 process.env 值（shell/CI）",
+  ".env.<mode>.local",
+  ".env.local（在 mode 为 test 时跳过）",
+  ".env.<mode>",
+  ".env",
+];
+
+const manualDeps = `npm install vinext
+npm install -D vite @vitejs/plugin-react`;
+
+const appRouterDeps = `npm install react-server-dom-webpack
+npm install -D @vitejs/plugin-rsc`;
+
+const viteConfig = `import { defineConfig } from "vite";
+import vinext from "vinext";
+
+export default defineConfig({
+  plugins: [vinext()],
+});`;
+
+const scriptsJson = `{
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "vinext start"
+  }
+}`;
+
+const commandsRow = `npx vite dev        # 带 HMR 的开发服务器
+npx vite build      # 生产构建
+npx @vinext/cloudflare deploy  # 构建并部署到 Cloudflare Workers`;
+
+const standaloneNote = `若 next.config.* 设置了 output: "standalone"，vite build 会在 dist/standalone/ 输出一个自托管包：`;
+
+const standaloneCmd = `node dist/standalone/server.js`;
+
+const agentSkill = `npx skills add cloudflare/vinext`;
+---
+
+<BaseLayout title="快速开始" description="vinext 快速开始：create-vinext-app、vinext init、AI agent 迁移、手动配置与完整 CLI 参考。">
+  <div class="mx-auto max-w-[1440px] px-5 py-16 sm:px-8 lg:py-24">
+    <div class="grid gap-14 lg:grid-cols-[240px_1fr]">
+      <!-- 侧边目录 -->
+      <aside class="hidden lg:block">
+        <nav class="sticky top-28 space-y-1" aria-label="页面目录">
+            {[
+              ["#官方初始化命令", "官方初始化命令"],
+              ["#ai-agent-迁移", "AI agent 迁移"],
+              ["#或者手动操作", "手动操作"],
+              ["#cli-参考", "CLI 参考"],
+              ["#新建一个-vinext-项目", "新建项目"],
+              ["#迁移已有的-nextjs-项目", "迁移已有项目"],
+              ["#环境变量加载", "环境变量"],
+            ].map(([href, label]) => (
+            <a
+              href={href}
+              class="link-underline block py-1.5 font-mono text-[12px] tracking-wider text-mid hover:text-paper"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+
+      <div>
+        <p class="reveal font-mono text-[11px] uppercase tracking-[0.3em] text-accent">快速开始</p>
+        <h1 class="reveal mt-4 font-display text-4xl font-bold tracking-tight text-paper sm:text-6xl">
+          启动你的 vinext 项目
+        </h1>
+        <p class="reveal mt-6 max-w-[62ch] text-base leading-relaxed text-mid sm:text-lg">
+          请使用下方的官方初始化命令。它们是创建或迁移 vinext 项目的推荐方式，
+          因为它们会替你配置依赖、<code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.9em]">scripts</code>、Vite 以及部署目标。
+        </p>
+
+        <!-- 官方初始化命令 -->
+        <SectionHeading index="01" id="官方初始化命令" title="官方初始化命令" />
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <div>
+            <h3 class="mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">用 create-vinext-app 新建项目</h3>
+            <CodeBlock fileName="终端" lang="bash" code="pnpm create vinext-app@latest my-app" />
+            <p class="mt-3 text-sm leading-relaxed text-mid">
+              它会创建一个带 Tailwind CSS 的 TypeScript App Router 项目，然后运行与已有应用相同的
+              vinext init 流程。生成的项目默认已准备好部署到 Cloudflare Workers；想要 Node 目标，传入
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--platform=node</code>。
+            </p>
+          </div>
+          <div>
+            <h3 class="mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">用 vinext init 迁移已有的 Next.js 项目</h3>
+            <CodeBlock fileName="终端" lang="bash" code="npx vinext init" />
+            <p class="mt-3 text-sm leading-relaxed text-mid">
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext init</code>
+              会提示你选择部署目标，默认是 Cloudflare。Agent 必须先询问用户想要哪个目标，再传入
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--platform=cloudflare</code>
+              或 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--platform=node</code>。
+            </p>
+          </div>
+        </div>
+
+        <!-- AI agent 迁移 -->
+        <SectionHeading index="02" id="ai-agent-迁移" title="可选：用 AI agent 迁移" lead="如果只是想要直接、可重复的迁移，更推荐 vinext init。如果你想让 AI agent 来排查兼容性问题并引导迁移，vinext 还附带了一个可选的 Agent Skill。" />
+
+        <p class="text-sm leading-relaxed text-mid">
+          该 skill 可以与 Claude Code、OpenCode、Cursor、Codex 以及数十种其他 AI 编程工具配合使用：
+        </p>
+        <CodeBlock fileName="终端" lang="bash" code={agentSkill} />
+        <p class="mt-4 text-sm leading-relaxed text-mid">
+          然后在任意受支持的工具中打开你的 Next.js 项目并输入：
+        </p>
+        <CodeBlock fileName="AI 工具输入框" code="migrate this project to vinext" />
+        <p class="mt-4 text-sm leading-relaxed text-mid">
+          该 skill 会处理兼容性检查、依赖安装、配置生成，以及开发服务器启动。它了解 vinext 支持哪些能力，并会标记出需要人工介入的地方。
+        </p>
+
+        <!-- 手动操作 -->
+        <SectionHeading index="03" id="或者手动操作" title="或者手动操作" />
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <div>
+            <h3 class="mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">1. 安装依赖</h3>
+            <CodeBlock fileName="终端" lang="bash" code={manualDeps} />
+            <p class="mt-3 text-sm leading-relaxed text-mid">如果你使用 App Router，还需安装：</p>
+            <CodeBlock fileName="终端" lang="bash" code={appRouterDeps} />
+          </div>
+          <div>
+            <h3 class="mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">2. 添加 Vite 配置</h3>
+            <CodeBlock fileName="vite.config.ts" lang="ts" code={viteConfig} />
+            <p class="mt-3 text-sm leading-relaxed text-mid">
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext()</code>
+              插件会自动探测你的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">app/</code> 或
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">pages/</code> 目录，并加载
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">next.config.js</code>。
+            </p>
+          </div>
+        </div>
+
+        <h3 class="mt-8 mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">3. 用 Vite 进行开发与构建</h3>
+        <CodeBlock fileName="package.json" lang="json" code={scriptsJson} />
+        <CodeBlock fileName="终端" lang="bash" code={commandsRow} />
+
+        <Callout type="info" title="Vite+">
+          如果使用 Vite+，则用 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vpx @vinext/cloudflare deploy</code>，
+          或者在运行本地安装的 bin 时用 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vp exec vinext-cloudflare deploy</code>。
+        </Callout>
+
+        <p class="mt-6 text-sm leading-relaxed text-mid">
+          你已有的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">pages/</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">app/</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">next.config.js</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">public/</code>
+          目录都可以原样工作。先运行 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext check</code>
+          扫描已知兼容性问题，或使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext init</code> 来自动化完成整次迁移。
+        </p>
+
+        <!-- CLI 参考 -->
+        <SectionHeading index="04" id="cli-参考" title="CLI 参考" />
+
+        <div class="reveal overflow-x-auto rounded-xl border border-white/10">
+          <table class="table-tech w-full min-w-[640px] text-left">
+            <thead>
+              <tr class="bg-white/[0.04]">
+                <th class="px-5 py-3.5">命令</th>
+                <th class="px-5 py-3.5">说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cliRows.map((row) => (
+                <tr class="transition-colors hover:bg-white/[0.03]">
+                  <td class="px-5 py-3 font-mono text-[12.5px] whitespace-nowrap text-accent">{row.cmd}</td>
+                  <td class="px-5 py-3 text-[13px] text-mid">{row.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-5 text-sm leading-relaxed text-mid">
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext dev</code> 与
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext build</code>
+          仍然作为项目本地 Vite 命令的轻量别名存在。它们需要一个 Vite 配置；如果缺失，请先运行
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext init</code>。
+          这两个命令的选项、输出与退出行为都由 Vite 掌管。对于较早配置好的项目，这些别名仍会在 Vite 读取配置前预加载 dotenv，
+          并在某个明确的默认 Vite 配置需要 ESM 迁移时添加
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">"type": "module"</code>
+          （把已知的 CommonJS 配置文件重命名为 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">.cjs</code>）。
+          显式的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">"type": "commonjs"</code>
+          永远不会被改动。直接使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vite dev</code> 与
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vite build</code> 不会执行这些包装层兼容性步骤。
+        </p>
+
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <div>
+            <h3 class="mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">@vinext/cloudflare deploy 的选项</h3>
+            <div class="reveal flex flex-wrap gap-2">
+              {deployOptions.map((opt) => (
+                <code class="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-[11.5px] text-subtle">{opt}</code>
+              ))}
+            </div>
+            <p class="mt-3 text-[13px] leading-relaxed text-mid">使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--env &lt;name&gt;</code> 来选择构建与部署所用的 Vite 模式。<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--preview</code> 是 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--env preview</code> 的简写。</p>
+          </div>
+          <div>
+            <h3 class="mb-3 font-mono text-[12px] tracking-[0.2em] text-subtle">vinext init 的选项</h3>
+            <div class="reveal space-y-2">
+              {initOptions.map((row) => (
+                <div class="flex flex-wrap items-baseline gap-x-3 rounded-lg border border-white/8 bg-white/[0.02] px-3.5 py-2.5">
+                  <code class="font-mono text-[11.5px] text-accent">{row.opt}</code>
+                  <span class="text-[12.5px] text-mid">{row.desc}</span>
+                </div>
+              ))}
+            </div>
+            <p class="mt-3 text-[13px] leading-relaxed text-mid">
+              Cloudflare 的 init 默认使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cf</code> 与
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">cloudflare.config.ts</code>。
+              已有的 Wrangler 配置不会被自动迁移。
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          {standaloneNote}
+          <CodeBlock fileName="终端" lang="bash" code={standaloneCmd} />
+          <p class="mt-3 text-sm leading-relaxed text-mid">环境变量：<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">PORT</code>（默认 3000）、<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">HOST</code>（默认 0.0.0.0）。</p>
+          <Callout type="warn" title="注意">
+            Next.js 的 standalone 使用 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">HOSTNAME</code> 作为绑定地址，
+            但 vinext 使用 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">HOST</code> 以避免与 Linux 上系统设置的
+            <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">HOSTNAME</code> 变量冲突。请据此更新你的部署配置。
+          </Callout>
+        </div>
+
+        <!-- 新建项目 -->
+        <SectionHeading index="05" id="新建一个-vinext-项目" title="新建一个 vinext 项目" />
+        <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+          新项目请使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">create-vinext-app</code>。
+          它会创建一个带 Tailwind CSS 的 TypeScript App Router 项目，然后运行与已有应用相同的 vinext init 流程：
+        </p>
+        <CodeBlock fileName="终端" lang="bash" code="pnpm create vinext-app@latest my-app" />
+        <p class="mt-3 text-sm leading-relaxed text-mid">
+          生成的项目默认已准备好部署到 Cloudflare Workers。如果你想要 Node 目标，传入
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--platform=node</code>。
+        </p>
+
+        <!-- 迁移已有项目 -->
+        <SectionHeading index="06" id="迁移已有的-nextjs-项目" title="迁移已有的 Next.js 项目" lead="vinext init 用一条命令自动化完成迁移：" />
+
+        <ol class="reveal relative space-y-4 border-l border-white/12 pl-7">
+          {initSteps.map((step, i) => (
+            <li class="relative">
+              <span
+                class="absolute -left-[37px] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-accent/60 bg-ink font-mono text-[10px] text-accent"
+                aria-hidden="true"
+              >
+                {i + 1}
+              </span>
+              <p class="text-sm leading-relaxed text-subtle">{step}</p>
+            </li>
+          ))}
+        </ol>
+
+        <Callout type="tip" title="非破坏性迁移">
+          这次迁移是非破坏性的——你已有的 Next.js 配置会继续与 vinext 共存。它不会修改
+          <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">next.config</code>、
+          <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">tsconfig.json</code>
+          或任何源文件，也不会移除 Next.js 依赖。
+        </Callout>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <CodeBlock fileName="终端" lang="bash" code={`npm run dev:vinext    # 启动 vinext 开发服务器（端口 3001）\nnpm run build:vinext  # 用 vinext 构建生产输出\nnpm run start:vinext  # 启动 vinext 生产服务器\nnpm run dev           # 仍像以前一样运行 Next.js`} />
+          <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6">
+            <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">平台与配置选项</p>
+            <p class="mt-3 text-sm leading-relaxed text-mid">
+              使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--platform=cloudflare</code> 或
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--platform=node</code> 可以跳过平台选择提示。
+              Cloudflare 的 init 会通过 AST 更新已有的 JavaScript 或 TypeScript Vite 配置，保留不相关的设置。使用
+              <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--force</code> 可替换已有的 Node 目标 Vite 配置，
+              或使用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">--skip-check</code> 跳过兼容性报告。
+            </p>
+          </div>
+        </div>
+
+        <p class="mt-6 text-sm leading-relaxed text-mid">
+          vinext 面向 Vite 8，后者默认使用 Rolldown、Oxc、Lightning CSS，以及更新的浏览器基线。
+          如果你从更旧的配置带来自定义的 Vite 配置或插件，请优先使用
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">oxc</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">optimizeDeps.rolldownOptions</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">build.rolldownOptions</code>，
+          而非旧的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">esbuild</code> 与
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">build.rollupOptions</code> 开关；
+          如果你仍然需要支持旧浏览器，请覆盖 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">build.target</code>。
+          如果某个依赖因更严格的 CommonJS 默认导入处理而报错，请修正导入，或临时使用
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">legacy.inconsistentCjsInterop: true</code> 作为逃生舱。
+          详见 <a class="link-underline text-accent" href="https://vite.dev/guide/migration" target="_blank" rel="noreferrer">Vite 8 迁移指南</a>。
+        </p>
+
+        <!-- 环境变量 -->
+        <SectionHeading index="07" id="环境变量加载" title="环境变量加载（.env*）" />
+
+        <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+          vinext 会自动为 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">dev</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">build</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">start</code>、
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">deploy</code> 加载 dotenv 文件。
+          Vite 会在插件钩子之前、不论导入顺序地求值所有静态配置导入。
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext dev</code> 与
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vinext build</code>
+          会在移交给 Vite 之前，从项目根目录预加载 dotenv，从而保留旧 CLI 在配置期的这种行为。
+          直接用 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vite dev</code> 与
+          <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">vite build</code> 则不会。
+          为了让配置期的值在两种命令下都可用，请在配置工厂中使用 Vite 的
+          <a class="link-underline text-accent" href="https://vite.dev/config/#using-environment-variables-in-config" target="_blank" rel="noreferrer"><code class="font-mono text-[0.88em]">loadEnv(mode, process.cwd(), "")</code></a>，
+          并读取它返回的值，而不是在静态导入中依赖 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">process.env</code>。
+          空前缀会包含仅服务端的变量；如果你有自己的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">envDir</code>，请用它替换 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">process.cwd()</code>。
+        </p>
+
+        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+          <div class="reveal rounded-xl border border-white/10 bg-white/[0.02] p-6">
+            <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">加载顺序（优先级从高到低）</p>
+            <ol class="mt-4 space-y-2.5">
+              {envOrder.map((item, i) => (
+                <li class="flex items-baseline gap-3">
+                  <span class="font-mono text-[11px] text-accent">{i + 1}.</span>
+                  <code class="font-mono text-[12px] text-subtle">{item}</code>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div class="reveal space-y-4" style="--reveal-delay:100ms">
+            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-6">
+              <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">模式</p>
+              <ul class="mt-4 space-y-2 text-sm text-mid">
+                <li><code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-subtle">vite dev</code> 使用 <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-accent">development</code></li>
+                <li><code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-subtle">vite build</code>、<code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-subtle">vinext start</code>、<code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-subtle">@vinext/cloudflare deploy</code> 使用 <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-accent">production</code></li>
+                <li><code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-subtle">vinext dev</code> 与 <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-subtle">vinext build</code> 使用对应的模式，包括 <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[12px] text-accent">--mode</code> 覆盖</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/[0.02] p-6">
+              <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">覆盖行为与客户端暴露</p>
+              <ul class="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-mid">
+                <li>支持变量展开（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">$VAR</code> / <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">${"{VAR}"}</code>）</li>
+                <li><code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">NEXT_PUBLIC_*</code> 变量会被内联供浏览器使用</li>
+                <li><code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">next.config.js</code> 的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">env</code> 项也会被内联</li>
+                <li>其他环境变量保持仅服务端，除非你通过 Vite 显式暴露（例如 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">VITE_*</code> + <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">import.meta.env</code>）</li>
+                <li>要覆盖任意 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">.env*</code> 值，请在运行 vinext 之前于你的 shell/CI 环境中设置它。已有的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[12px]">process.env</code> 始终优先。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

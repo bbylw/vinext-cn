@@ -1,0 +1,53 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { ApiMatrix } from "../components/react/ApiMatrix";
+
+const summary = [
+  { symbol: "✅", label: "完整实现", count: "运行时行为与构建期优化均到位", cls: "text-accent-green" },
+  { symbol: "🟡", label: "局部实现", count: "运行时行为正确，部分构建期优化缺失", cls: "text-accent" },
+  { symbol: "⬜", label: "有意桩/空操作", count: "针对已废弃特性的有意识排除", cls: "text-mid" },
+];
+---
+
+<BaseLayout title="API 覆盖" description="vinext API 覆盖清单：约 94% 的 Next.js 16 API 表面已获完整或局部支持。">
+  <div class="mx-auto max-w-[1200px] px-5 py-16 sm:px-8 lg:py-24">
+    <p class="reveal font-mono text-[11px] uppercase tracking-[0.3em] text-accent">API 覆盖</p>
+    <h1 class="reveal mt-4 font-display text-4xl font-bold tracking-tight text-paper sm:text-6xl">
+      94% 的<span class="text-accent"> Next.js 16</span> API
+    </h1>
+    <p class="reveal mt-6 max-w-[62ch] text-base leading-relaxed text-mid sm:text-lg">
+      约 94% 的 Next.js 16 API 表面已获得完整或局部支持。剩余的缺口是有意为之的桩
+      （针对已废弃特性），再加上 Partial Prerendering 与 Cache Components。
+      Next.js 16 把 PPR 重做成了 <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.9em]">"use cache"</code>；
+      vinext 为该指令实现了文件级与函数级缓存，但完整的 <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.9em]">cacheComponents</code>
+      行为仍不完整——见
+      <a class="link-underline text-accent" href="/status/#正在解决的已知缺口">正在解决的已知缺口</a>。
+    </p>
+
+    <div class="reveal mt-8 flex flex-wrap gap-6">
+      {summary.map((s) => (
+        <div class="flex items-center gap-2.5">
+          <span aria-hidden="true">{s.symbol}</span>
+          <div>
+            <p class={`font-mono text-[12px] tracking-wider ${s.cls}`}>{s.label}</p>
+            <p class="text-[12px] text-mid">{s.count}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="mt-14">
+      <ApiMatrix client:load />
+    </div>
+
+    <p class="mt-10 text-sm leading-relaxed text-mid">
+      每一个 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">next/*</code>
+      导入都被垫片为一个 Vite 兼容的实现。需要 Next.js 内部实现（例如
+      <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">styled-jsx</code>）的兼容特性，
+      在使用时可能仍需要匹配版本的 Next.js 安装。
+      vinext 为受支持的 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">next</code> 与
+      <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">next/*</code> API
+      提供了兜底的类型声明，因此应用可以在没有 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">next</code> 包的情况下运行并做类型检查。
+    </p>
+  </div>
+</BaseLayout>

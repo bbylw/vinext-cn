@@ -1,0 +1,113 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { FaqAccordion, type FaqItem } from "../components/react/FaqAccordion";
+import Callout from "../components/Callout.astro";
+
+const faqs: FaqItem[] = [
+  {
+    q: "这是什么？",
+    a: [
+      "vinext 是一个 Vite 插件，重新实现了公开的 Next.js API——路由、服务端渲染、next/* 模块导入、CLI——这样你就可以在 Vite 而非 Next.js 编译器工具链上运行 Next.js 应用。",
+      "它可以部署到任何地方：Cloudflare Workers 是第一个原生支持的目标，其他平台可通过 Nitro 获得。更多平台的原生适配器已在规划中。",
+    ],
+  },
+  {
+    q: "这是 Next.js 的一个 fork 吗？",
+    a: [
+      "不是。vinext 是一套基于 Vite 构建的、对 Next.js API 表面的替代实现。核心是从零写起的。目标不是创建一个竞争性的框架或在 Next.js 已有能力之外添加特性，而是把同一套定义良好的 API 表面搬到 Vite 的工具链上。",
+    ],
+  },
+  {
+    q: "vinext 需要安装 Next.js 吗？",
+    a: [
+      "不需要。vinext 为受支持的 next 与 next/* API 提供了兜底的类型声明，因此应用可以在没有 next 包的情况下运行并做类型检查。",
+      "如果两个包都安装了，vinext 会继续沿用 Next.js 的权威类型，只附加自己的扩展。那些需要消费 Next.js 内部实现（例如 styled-jsx）的兼容特性，在使用时可能仍需要匹配版本的 Next.js 安装。",
+    ],
+  },
+  {
+    q: "这和 OpenNext 有何不同？",
+    a: [
+      "OpenNext 把标准 next build 的产物适配到各种平台运行。因为它构建在 Next.js 自身产物之上，所以继承了广泛的 API 覆盖，并且经过了更长时间的良好测试。",
+      "vinext 走的是另一条路：它从零在 Vite 上重新实现 Next.js API，意味着更快的构建与更小的包体，但对 Next.js 长尾特性的覆盖更少。如果你需要一套成熟、经过充分测试的、在 Vercel 之外运行 Next.js 的方式，OpenNext 是更稳妥的选择。如果你想要一套更轻量的、基于 Vite 的工具链，并且不需要每一个 Next.js API，vinext 可能更合适。",
+    ],
+  },
+  {
+    q: "我能用在生产环境吗？",
+    a: [
+      "可以，但要谨慎。vinext 存在已知的兼容性缺口，尚未在完整的生产 Next.js 负载范围内经过实战检验。在采用前，请评估你的应用所依赖的特性与部署目标。",
+    ],
+  },
+  {
+    q: "我能不能就自托管 Next.js？",
+    a: [
+      "能。Next.js 支持在 Node.js 服务器、Docker 容器上自托管，或作为静态导出。如果你对 Next.js 工具链满意，只是想把它跑到 Vercel 之外，自托管是最简单的路径。",
+    ],
+  },
+  {
+    q: "你们是怎么验证它能用的？",
+    a: [
+      "测试套件包含超过 1,700 个 Vitest 测试与 380 个 Playwright E2E 测试。其中包含直接从 Next.js 测试套件和 OpenNext 的 Cloudflare 一致性测试套件移植过来的用例，覆盖路由、SSR、RSC、Server Actions、缓存、Metadata、中间件、流式渲染等。",
+      "Vercel 的 App Router Playground 也作为集成测试跑在 vinext 上。详见 Tests 小节与 tests/nextjs-compat/TRACKING.md。",
+    ],
+  },
+  {
+    q: "谁在审阅这些代码？",
+    a: [
+      "人类与 AI agent 的混合。人类会在 PR 合并前审阅，关注行为、结构与长期方向。我们重度依赖 agent 驱动的代码审查，以便在 PR 阶段和整个代码库中捕捉问题。测试套件是主要的质量关卡。我们非常欢迎外部贡献与更深入的人工代码审查。",
+    ],
+  },
+  {
+    q: "为什么选择 Vite？",
+    a: [
+      "Vite 是一个优秀的构建工具，拥有丰富的插件生态、一流的 ESM 支持，以及快速的 HMR。@vitejs/plugin-rsc 插件通过多环境构建加入了对 React Server Components 的支持。vinext 把 Next.js 的开发体验建立在这套基础设施之上。",
+    ],
+  },
+  {
+    q: "它支持 Pages Router、App Router，还是两者都支持？",
+    a: [
+      "两者都支持。文件系统路由、SSR、客户端水合，以及部署到 Cloudflare Workers，对两种路由器都有效。",
+    ],
+  },
+  {
+    q: "它面向哪个版本的 Next.js？",
+    a: ["Next.js 16.x。不支持旧版本中已废弃的 API。"],
+  },
+  {
+    q: "我能部署到 AWS/Netlify/其他平台吗？",
+    a: [
+      "能。在 vinext 旁边加上 Nitro Vite 插件，就能部署到 Vercel、Netlify、AWS Amplify、Deno Deploy、Azure 以及更多平台。对于 Cloudflare Workers，原生集成（npx @vinext/cloudflare deploy 或 vp exec vinext-cloudflare deploy）能给你最顺滑的体验。更多平台的原生适配器已在规划中。",
+    ],
+  },
+  {
+    q: "Next.js 发布新特性时会怎样？",
+    a: [
+      "我们会跟踪公开的 Next.js API 表面，并为新的稳定特性添加支持。实验性或不稳定特性的优先级较低。计划是加入对 Next.js 仓库的提交级跟踪，以便在各版本发布时保持同步。",
+    ],
+  },
+];
+---
+
+<BaseLayout title="常见问题" description="vinext 常见问题：fork 关系、Next.js 依赖、与 OpenNext 的差异、生产可用性与部署平台。">
+  <div class="mx-auto max-w-[900px] px-5 py-16 sm:px-8 lg:py-24">
+    <p class="reveal text-center font-mono text-[11px] uppercase tracking-[0.3em] text-accent">常见问题</p>
+    <h1 class="reveal mt-4 text-center font-display text-4xl font-bold tracking-tight text-paper sm:text-6xl">
+      疑问<span class="text-accent">解答</span>
+    </h1>
+    <p class="reveal mx-auto mt-6 max-w-[52ch] text-center text-base leading-relaxed text-mid">
+      从 fork 关系到生产可用性，关于 vinext 最常被问到的十三个问题。
+    </p>
+
+    <div class="mt-12">
+      <FaqAccordion client:load items={faqs} />
+    </div>
+
+    <Callout type="tip" title="还有疑问？">
+      <p>
+        在迁移前先运行 <code class="rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[0.85em]">vinext check</code> 扫描你的应用；
+        未列出的缺口请查看
+        <a class="link-underline text-accent" href="https://github.com/cloudflare/vinext/issues" target="_blank" rel="noreferrer">open issues</a>
+        或提交一个聚焦的重现示例。
+      </p>
+    </Callout>
+  </div>
+</BaseLayout>

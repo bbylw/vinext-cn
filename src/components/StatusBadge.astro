@@ -1,0 +1,29 @@
+---
+export type SupportLevel = "full" | "partial" | "stub";
+
+interface Props {
+  level: SupportLevel;
+  size?: "sm" | "md";
+}
+
+const meta: Record<SupportLevel, { symbol: string; label: string; cls: string }> = {
+  full: { symbol: "✅", label: "完整实现", cls: "border-accent-green/40 text-accent-green" },
+  partial: { symbol: "🟡", label: "局部实现", cls: "border-accent/50 text-accent" },
+  stub: { symbol: "⬜", label: "有意桩/空操作", cls: "border-white/20 text-mid" },
+};
+
+const { level, size = "md" } = Astro.props;
+const m = meta[level];
+---
+
+<span
+  class:list={[
+    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border font-mono",
+    size === "sm" ? "px-2 py-0.5 text-[10px]" : "px-3 py-1 text-[11px]",
+    m.cls,
+  ]}
+  title={m.label}
+>
+  <span aria-hidden="true">{m.symbol}</span>
+  <span class="tracking-wider">{m.label}</span>
+</span>

@@ -1,0 +1,100 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import Callout from "../components/Callout.astro";
+import CodeBlock from "../components/CodeBlock.astro";
+
+const measures = [
+  { title: "生产构建时间", desc: "运行 5 次，用 hyperfine 计时。" },
+  { title: "客户端包体大小", desc: "每次构建的 gzip 输出。" },
+  { title: "开发服务器冷启动", desc: "运行 10 次，随机化执行顺序。每次运行前都会清空 Vite 的依赖优化缓存。" },
+];
+
+const repro = `node benchmarks/run.mjs --runs=5 --dev-runs=10`;
+---
+
+<BaseLayout title="基准测试" description="vinext 基准测试方法论：编译与打包速度的对比方式与复现命令。">
+  <div class="mx-auto max-w-[1000px] px-5 py-16 sm:px-8 lg:py-24">
+    <p class="reveal font-mono text-[11px] uppercase tracking-[0.3em] text-accent">基准测试</p>
+    <h1 class="reveal mt-4 font-display text-4xl font-bold tracking-tight text-paper sm:text-6xl">
+      编译与<span class="text-accent">打包</span>
+    </h1>
+
+    <Callout type="warn" title="提醒">
+      <p>
+        基准测试很难做对，而且这些还是早期结果。请将其视为方向性参考，而非定论。
+        发布时的数字见
+        <a class="link-underline text-accent" href="https://blog.cloudflare.com/vinext/" target="_blank" rel="noreferrer">发布博客文章</a>，
+        最新结果见
+        <a class="link-underline text-accent" href="https://vinext.dev/benchmarks" target="_blank" rel="noreferrer">vinext.dev/benchmarks</a>。
+      </p>
+    </Callout>
+
+    <SectionHeading
+      index="01"
+      title="衡量什么"
+      lead="这些基准测试衡量的是编译与打包速度，而非生产环境服务性能。"
+    />
+
+    <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+      Next.js 与 vinext 的默认做法有本质不同：Next.js 在构建时静态预渲染页面
+      （构建更慢，但静态内容的生成服务更快），而 vinext 在每次请求时对所有页面做服务端渲染。
+      为了让比较旗鼓相当，基准应用使用
+      <code class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.9em]">export const dynamic = "force-dynamic"</code>
+      关掉 Next.js 的静态预渲染——两个框架做着相同的工作：编译、打包，以及准备服务端渲染的路由。
+    </p>
+
+    <p class="mt-5 max-w-[62ch] text-sm leading-relaxed text-mid">
+      基准应用是一个共享的、33 条路由的 App Router 应用（服务端组件、客户端组件、动态路由、嵌套布局、API 路由），
+      由两种工具以相同方式构建。我们比较 Next.js（Turbopack）与 vinext（Vite 8）。
+      Turbopack 与 Rolldown 都会跨核并行，因此在核数更多的机器上结果可能有显著差异。
+    </p>
+
+    <div class="mt-10 grid gap-4 md:grid-cols-3">
+      {measures.map((m, i) => (
+        <div class="reveal rounded-2xl border border-white/10 bg-white/[0.02] p-6" style={`--reveal-delay:${i * 90}ms`}>
+          <span class="font-mono text-[10px] tracking-[0.2em] text-accent">/{i + 1}</span>
+          <h3 class="mt-2 font-display text-lg font-semibold tracking-tight text-paper">{m.title}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-mid">{m.desc}</p>
+        </div>
+      ))}
+    </div>
+
+    <SectionHeading index="02" title="包体大小差异的来源" />
+
+    <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+      对构建输出的分析显示了两个主要因素：
+    </p>
+
+    <div class="mt-6 space-y-0 overflow-hidden rounded-xl border border-white/10">
+      <div class="p-6">
+        <h3 class="font-display text-lg font-semibold text-paper">1 · Tree-shaking</h3>
+        <p class="mt-2 text-sm leading-relaxed text-mid">
+          Vite/Rolldown 产出的 React+ReactDOM 包比 Next.js/Turbopack 更小。
+          Rolldown 更激进的死代码消除贡献了整体差异的大约一半。
+        </p>
+      </div>
+      <div class="border-t border-white/8 p-6">
+        <h3 class="font-display text-lg font-semibold text-paper">2 · 框架开销</h3>
+        <p class="mt-2 text-sm leading-relaxed text-mid">
+          Next.js 比 vinext 更轻量的客户端运行时携带了更多的客户端基础设施
+          （路由器、Turbopack 运行时加载器、预取、错误处理）。
+        </p>
+      </div>
+    </div>
+
+    <p class="mt-5 text-sm leading-relaxed text-mid">
+      两个框架都交付相同的应用代码，以及相同的 RSC 客户端运行时（<code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">react-server-dom-webpack</code>）。
+      差异在于有多少 React 实现在 tree-shaking 后存活下来，以及每个工具额外加入了多少框架管线。
+    </p>
+
+    <SectionHeading index="03" title="复现" />
+    <p class="max-w-[62ch] text-sm leading-relaxed text-mid">
+      基准测试在 GitHub CI runner（2 核 Ubuntu）上、每次合并到 <code class="rounded bg-white/10 px-1 py-0.5 font-mono text-[0.88em]">main</code> 时运行。
+      每个结果中都记录了确切的框架版本。
+    </p>
+    <div class="mt-6">
+      <CodeBlock fileName="终端" lang="bash" code={repro} />
+    </div>
+  </div>
+</BaseLayout>

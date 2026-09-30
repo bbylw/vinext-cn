@@ -1,0 +1,65 @@
+---
+const year = new Date().getFullYear();
+const columns = [
+  {
+    title: "项目",
+    links: [
+      { label: "官方网站", href: "https://vinext.dev" },
+      { label: "官方文档", href: "https://vinext.dev/docs" },
+      { label: "发布博客", href: "https://blog.cloudflare.com/vinext/" },
+      { label: "GitHub 仓库", href: "https://github.com/cloudflare/vinext" },
+    ],
+  },
+  {
+    title: "开始",
+    links: [
+      { label: "快速开始", href: "/quickstart/" },
+      { label: "迁移已有项目", href: "/quickstart/#迁移已有的-nextjs-项目" },
+      { label: "部署到 Workers", href: "/deploy/#cloudflare-workers" },
+      { label: "兼容性检查", href: "/status/" },
+    ],
+  },
+  {
+    title: "参考",
+    links: [
+      { label: "API 覆盖", href: "/api/" },
+      { label: "CLI 参考", href: "/quickstart/#cli-参考" },
+      { label: "架构", href: "/architecture/" },
+      { label: "常见问题", href: "/faq/" },
+    ],
+  },
+];
+---
+
+<footer class="relative border-t border-white/8 bg-ink-soft">
+  <div class="mx-auto max-w-[1440px] px-5 py-16 sm:px-8">
+    <div class="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div>
+        <p class="font-display text-2xl font-bold tracking-tight text-paper">
+          vinext<span class="text-accent">.</span>
+        </p>
+        <p class="mt-4 max-w-[42ch] text-sm leading-relaxed text-mid">
+          在 Vite 上运行 Next.js 应用，以 Cloudflare Workers 作为主要部署目标。
+          本站为 vinext 官方文档的中文译介，内容以英文原文为准。
+        </p>
+        <p class="mt-6 font-mono text-[11px] tracking-wider text-subtle">
+          MIT © {year} · 基于 README 整理
+        </p>
+      </div>
+      {columns.map((col) => (
+        <div>
+          <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-mid">{col.title}</p>
+          <ul class="mt-4 space-y-2.5">
+            {col.links.map((link) => (
+              <li>
+                <a href={link.href} class="link-underline text-sm text-subtle hover:text-paper">
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+</footer>
